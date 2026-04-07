@@ -4,11 +4,9 @@ from tkinter import messagebox, ttk
 import psycopg2
 from dotenv import load_dotenv
 
-# 1. CONFIGURACIÓN DE BASE DE DATOS
 load_dotenv()
 
 def obtener_conexion():
-    """Establece la conexión con la base de datos PostgreSQL en Supabase."""
     try:
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST"),
@@ -23,7 +21,6 @@ def obtener_conexion():
         return None
 
 def inicializar_db():
-    """Crea la tabla si no existe al iniciar la app."""
     conn = obtener_conexion()
     if conn:
         with conn.cursor() as cursor:
@@ -37,7 +34,6 @@ def inicializar_db():
             conn.commit()
         conn.close()
 
-# 2. LÓGICA DE NEGOCIO (DB)
 def db_guardar_receta(nombre, tiempo):
     conn = obtener_conexion()
     if not conn: return False
@@ -65,7 +61,6 @@ def db_obtener_recetas():
     finally:
         conn.close()
 
-# 3. INTERFAZ GRÁFICA (GUI)
 class AppRecetas:
     def __init__(self, root):
         self.root = root
@@ -73,7 +68,6 @@ class AppRecetas:
         self.root.geometry("700x500")
         self.root.configure(padx=20, pady=20)
 
-        # Variables de control
         self.var_nombre = tk.StringVar()
         self.var_tiempo = tk.StringVar()
 
@@ -81,7 +75,6 @@ class AppRecetas:
         self.actualizar_lista()
 
     def crear_widgets(self):
-        # --- Formulario ---
         frame_form = tk.LabelFrame(self.root, text="Nueva Receta", padx=10, pady=10)
         frame_form.pack(fill="x", pady=10)
 
@@ -91,7 +84,6 @@ class AppRecetas:
         tk.Label(frame_form, text="Tiempo (min):").grid(row=0, column=2, sticky="w")
         tk.Entry(frame_form, textvariable=self.var_tiempo, width=10).grid(row=0, column=3, padx=5, pady=5)
 
-        # --- Botonera ---
         frame_btns = tk.Frame(self.root)
         frame_btns.pack(fill="x", pady=5)
 
@@ -100,7 +92,6 @@ class AppRecetas:
         tk.Button(frame_btns, text="Cargar Prueba", command=self.cargar_prueba).pack(side="left", padx=2)
         tk.Button(frame_btns, text="Refrescar Lista", command=self.actualizar_lista).pack(side="left", padx=2)
 
-        # --- Tabla (Treeview) ---
         self.tabla = ttk.Treeview(self.root, columns=("Nombre", "Tiempo", "Comparación"), show='headings')
         self.tabla.heading("Nombre", text="Nombre del Plato")
         self.tabla.heading("Tiempo", text="Tiempo (min)")
@@ -113,7 +104,6 @@ class AppRecetas:
         nombre = self.var_nombre.get().strip()
         tiempo_str = self.var_tiempo.get().strip()
 
-        # Validaciones
         if not nombre:
             messagebox.showwarning("Validación", "El nombre no puede estar vacío.")
             return
@@ -126,14 +116,12 @@ class AppRecetas:
             messagebox.showwarning("Validación", "El tiempo debe ser un número mayor a cero.")
             return
 
-        # Proceso de guardado
         if db_guardar_receta(nombre, tiempo):
             messagebox.showinfo("Éxito", f"Receta '{nombre}' guardada.")
             self.limpiar_campos()
             self.actualizar_lista()
 
     def actualizar_lista(self):
-        # Limpiar tabla actual
         for i in self.tabla.get_children():
             self.tabla.delete(i)
 
@@ -141,14 +129,11 @@ class AppRecetas:
         if not recetas:
             return
 
-        # La receta base es la de menor tiempo (primera por el ORDER BY ASC)
         nombre_base, tiempo_base = recetas[0]
 
         for nombre, tiempo in recetas:
-            # Lógica de comparación
             equiv = tiempo / tiempo_base
             relacion = f"{int(equiv) if equiv.is_integer() else equiv:.2f}x {nombre_base}"
-            
             self.tabla.insert("", "end", values=(nombre, f"{tiempo:.2f}", relacion))
 
     def cargar_prueba(self):
