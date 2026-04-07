@@ -3,7 +3,7 @@ from tkinter import messagebox, ttk
 import psycopg2
 from psycopg2 import errors
 
-# Credenciales de conexión a Supabase (PostgreSQL)
+
 DB_HOST = "aws-1-us-west-2.pooler.supabase.com"
 DB_PORT = "5432"
 DB_NAME = "postgres"
@@ -24,7 +24,7 @@ def iniciar_db():
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        # Se adapta a la tabla de la imagen: id (int4/serial), nombre (text), tiempo (float4/real)
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS recetas (
                 id SERIAL PRIMARY KEY,
