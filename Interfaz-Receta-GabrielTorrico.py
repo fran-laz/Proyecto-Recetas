@@ -24,7 +24,6 @@ class AppRecetasSupabase:
         # Crear tabla
         self.init_db()
 
-        # ---------------- INTERFAZ ----------------
         frame_input = tk.LabelFrame(
             self.root,
             text="Datos de la Receta",
@@ -106,7 +105,6 @@ class AppRecetasSupabase:
 
         self.actualizar_tabla()
 
-    # ---------------- BASE DE DATOS ----------------
 
     def conectar(self):
         try:
@@ -161,7 +159,6 @@ class AppRecetasSupabase:
         finally:
             conn.close()
 
-    # ---------------- FUNCIONES CRUD ----------------
 
     def agregar_receta(self):
         nombre = self.ent_nombre.get().strip()
@@ -298,7 +295,6 @@ class AppRecetasSupabase:
         finally:
             conn.close()
 
-    # ---------------- TABLA ----------------
 
     def actualizar_tabla(self):
         for item in self.tabla.get_children():
@@ -350,7 +346,6 @@ class AppRecetasSupabase:
         finally:
             conn.close()
 
-    # ---------------- UTILIDADES ----------------
 
     def cargar_en_campos(self, event):
         seleccion = self.tabla.selection()
@@ -374,7 +369,6 @@ class AppRecetasSupabase:
         self.id_seleccionado = None
 
 
-# ---------------- INICIO ----------------
 
 if __name__ == "__main__":
     root = tk.Tk()
