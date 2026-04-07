@@ -1,0 +1,174 @@
+import tkinter as tk
+from tkinter import messagebox, ttk
+import psycopg2
+from psycopg2 import errors
+
+
+DB_HOST = "aws-1-us-west-2.pooler.supabase.com"
+DB_PORT = "5432"
+DB_NAME = "postgres"
+DB_USER = "postgres.axshypwvvpouadoxcqkx"
+DB_PASSWORD = "47E%+qsJTuq.XB!"
+
+def get_connection():
+    """Establece y retorna la conexión a la base de datos Supabase."""
+    return psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+
+def iniciar_db():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recetas (
+                id SERIAL PRIMARY KEY,
+                nombre TEXT UNIQUE NOT NULL,
+                tiempo REAL NOT NULL
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error al iniciar la base de datos: {e}")
+
+
+class GestorRecetasAuto:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Gestor de Recetas")
+        self.root.geometry("852x480")
+        
+        iniciar_db()
+        self.setup_ui()
+        self.cargar_tabla()
+
+    def setup_ui(self):
+        frame_input = tk.LabelFrame(self.root, text="Entrada de Datos", padx=10, pady=10)
+        frame_input.pack(fill="x", padx=10, pady=10)
+
+        tk.Label(frame_input, text="Nombre Receta:").grid(row=0, column=0, sticky="e", pady=5)
+        self.ent_nombre = tk.Entry(frame_input, width=25)
+        self.ent_nombre.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(frame_input, text="Valor (Minutos):").grid(row=0, column=2, sticky="e", pady=5)
+        self.ent_valor = tk.Entry(frame_input, width=15)
+        self.ent_valor.grid(row=0, column=3, padx=5, pady=5)
+
+        frame_botones = tk.Frame(frame_input)
+        frame_botones.grid(row=1, column=0, columnspan=4, pady=10)
+
+        self.btn_agregar = tk.Button(frame_botones, text="➕ Agregar Receta",
+                                     command=self.agregar_receta,
+                                     bg="#28a745", fg="white", width=18)
+        self.btn_agregar.pack(side="left", padx=5)
+
+        self.btn_eliminar_todo = tk.Button(frame_botones, text="🗑 Eliminar Todo",
+                                           command=self.eliminar_todas,
+                                           bg="#dc3545", fg="white", width=18)
+        self.btn_eliminar_todo.pack(side="left", padx=5)
+
+        columnas = ("id", "nombre", "tiempo", "valor_base")
+        self.tabla = ttk.Treeview(self.root, columns=columnas, show="headings")
+        
+        self.tabla.heading("id", text="ID")
+        self.tabla.heading("nombre", text="Nombre del Item")
+        self.tabla.heading("tiempo", text="Valor (Min)")
+        self.tabla.heading("valor_base", text="Valor en Receta Base")
+        
+        self.tabla.column("id", width=60, anchor="center")
+        self.tabla.column("nombre", width=250)
+        self.tabla.column("tiempo", width=120, anchor="center")
+        self.tabla.column("valor_base", width=180, anchor="center")
+        
+        self.tabla.pack(fill="both", expand=True, padx=10, pady=10)
+
+    def obtener_valor_base(self):
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT tiempo FROM recetas ORDER BY id ASC LIMIT 1")
+            resultado = cursor.fetchone()
+            conn.close()
+            return resultado[0] if resultado else None
+        except Exception as e:
+            print(f"Error al obtener valor base: {e}")
+            return None
+
+    def agregar_receta(self):
+        nombre = self.ent_nombre.get().strip()
+        valor_str = self.ent_valor.get().strip()
+        
+        if not (nombre and valor_str):
+            messagebox.showwarning("Atención", "Completa el nombre y el valor.")
+            return
+            
+        try:
+            tiempo = float(valor_str)
+            conn = get_connection()
+            cursor = conn.cursor()
+            # PostgreSQL usa %s para los parámetros, la id se genera automáticamente por ser SERIAL
+            cursor.execute("INSERT INTO recetas (nombre, tiempo) VALUES (%s, %s)", (nombre, tiempo))
+            conn.commit()
+            conn.close()
+
+            self.ent_nombre.delete(0, tk.END)
+            self.ent_valor.delete(0, tk.END)
+            self.cargar_tabla()
+            
+        except errors.UniqueViolation:
+            messagebox.showerror("Error", f"La receta '{nombre}' ya existe.")
+        except ValueError:
+            messagebox.showerror("Error", "El valor debe ser un número.")
+        except Exception as e:
+            messagebox.showerror("Error DB", f"Ocurrió un error: {e}")
+
+    def eliminar_todas(self):
+        confirmar = messagebox.askyesno("Confirmar Borrado", "¿Estás seguro de que quieres eliminar las recetas?")
+        if confirmar:
+            try:
+                conn = get_connection()
+                cursor = conn.cursor()
+                # TRUNCATE es la forma óptima de vaciar una tabla en Postgres y reiniciar el ID (SERIAL)
+                cursor.execute("TRUNCATE TABLE recetas RESTART IDENTITY;")
+                conn.commit()
+                conn.close()
+                messagebox.showinfo("Limpieza", "Se han eliminado todas las recetas correctamente")
+                self.cargar_tabla()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo limpiar la tabla: {e}")
+
+    def cargar_tabla(self):
+        for item in self.tabla.get_children():
+            self.tabla.delete(item)
+            
+        valor_base = self.obtener_valor_base()
+        
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, nombre, tiempo FROM recetas ORDER BY id ASC")
+            
+            for r in cursor.fetchall():
+                id_receta, nombre, tiempo = r
+                if valor_base and valor_base != 0:
+                    relativo = tiempo / valor_base
+                    texto_base = f"{round(relativo, 2)} base"
+                else:
+                    texto_base = "1 base"
+
+                self.tabla.insert("", tk.END, values=(id_receta, nombre, tiempo, texto_base))
+                
+            conn.close()
+        except Exception as e:
+            print(f"Error al cargar la tabla: {e}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = GestorRecetasAuto(root)
+    root.mainloop()
